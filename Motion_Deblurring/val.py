@@ -22,17 +22,17 @@ from basicsr.metrics import calculate_ssim
 import cv2
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = '3'
-
+torch.cuda.empty_cache()
 parser = argparse.ArgumentParser(description='Single Image Motion Deblurring using Restormer')
 
-parser.add_argument('--input_dir', default='/data/mxt_data/GoPro/test/blur', type=str, help='Directory of validation images') # blur sharp_phase
-parser.add_argument('--tar_dir', default='/data/mxt_data/GoPro/test/sharp', type=str, help='Directory of gt images') # sharp sharp_phase
+parser.add_argument('--input_dir', default='/home/hpc12/Radi/pictures/blur', type=str, help='Directory of validation images') # blur sharp_phase
+parser.add_argument('--tar_dir', default='/home/hpc12/Radi/pictures/sharp', type=str, help='Directory of gt images') # sharp sharp_phase
 # parser.add_argument('--input_dir', default='/home/ubuntu/106-48t/personal_data/mxt/Datasets/Deblur/GoPro/tmp/405_cut/blur', type=str, help='Directory of validation images') # blur sharp_phase
 # parser.add_argument('--tar_dir', default='/home/ubuntu/106-48t/personal_data/mxt/Datasets/Deblur/GoPro/tmp/405_cut/sharp', type=str, help='Directory of gt images') # sharp sharp_phase
 # parser.add_argument('--result_dir', default='./results/RealBlur_AdaRevID-S_2fcnaf_norev/RealBlur_J', type=str, help='Directory for results')
-parser.add_argument('--result_dir', default='/home/ubuntu/90t/personal_data/mxt/MXT/exp_results/RevD-xxx/GoPro', type=str, help='Directory for results')
+parser.add_argument('--result_dir', default='/home/hpc12/Radi/AdaRevD/results', type=str, help='Directory for results')
 parser.add_argument('--weights',
-                    default='/home/ubuntu/90t/personal_data/mxt/MXT/ckpts/RevD-B/net_g_GoPro.pth',
+                    default='/home/hpc12/Radi/AdaRevD/weights/RevD-B_GoPro.pth',
                     type=str, help='Path to weights')
 
 parser.add_argument('--multi_focus', default=False, type=bool, help='save')
@@ -50,7 +50,7 @@ args = parser.parse_args()
 # yaml_file = 'Options/AdaRevID-GoPro-rebuttal-test.yml'
 # yaml_file = 'Options/NAFNet-width64.yml'
 # yaml_file = 'Options/AdaRevIDB-Adaptive-test.yml'
-yaml_file = 'Options/AdaRevID-B-GoPro-test.yml'
+yaml_file = '/home/hpc12/Radi/AdaRevD/Motion_Deblurring/Options/AdaRevID-B-GoPro-test.yml'
 # yaml_file = 'Options/AdaRevID-RealBlur-R-test.yml'
 # yaml_file = 'Options/AdaRevID-RealBlur-J-test.yml'
 import yaml
@@ -98,8 +98,9 @@ else:
     print('inference for time')
 print("===>Testing using weights: ", args.weights)
 model_restoration.cuda()
-model_restoration = nn.DataParallel(model_restoration)
+model_restoration = model_restoration.cuda()
 model_restoration.eval()
+model_restoration = model_restoration.half()  # Convert model to float16
 
 psnr_val_rgb = []
 ssim_val_rgb = []
@@ -124,8 +125,8 @@ with torch.no_grad():
 
         img = np.float32(utils.load_img(file_))/255.
         img = torch.from_numpy(img).permute(2,0,1)
-        input_ = img.unsqueeze(0).cuda()
-
+        # input_ = img.unsqueeze(0).cuda() #Radi
+        input_ = img.unsqueeze(0).cuda().half()  # Convert input to float16
         # Padding in case images are not multiples of 8
         # h,w = input_.shape[2], input_.shape[3]
         # H,W = ((h+factor)//factor)*factor, ((w+factor)//factor)*factor
@@ -134,12 +135,14 @@ with torch.no_grad():
         # input_ = F.pad(input_, (0,padw,0,padh), 'reflect')
         torch.cuda.synchronize()
         start = time.time()
-        restored, num_decoders = model_restoration(input_)
+        with torch.cuda.amp.autocast():  # Enable mixed precision
+            restored, num_decoders = model_restoration(input_)
+        # restored, num_decoders = model_restoration(input_)
         # restored = model_restoration(input_)
         torch.cuda.synchronize()
         end = time.time()
         all_time += end - start
-
+        
         if isinstance(restored, list):
             restored = restored[-1]
         elif isinstance(restored, dict):

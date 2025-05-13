@@ -63,12 +63,12 @@ network_g:
 #  use_amp: true # stem_multi # stem_once
   state_dict_pth_encoder: # /home/ubuntu/106-48t/personal_data/mxt/exp_results/ckpt/UFPNet/train_on_GoPro/net_g_latest.pth
   state_dict_pth_decoder: # /home/ubuntu/106-48t/personal_data/mxt/exp_results/ckpt/UFPNet/train_on_GoPro/net_g_latest.pth
-  state_dict_pth_classifier: /home/ubuntu/90t/personal_data/mxt/MXT/ckpts/classifier/GoPro.pth
+  state_dict_pth_classifier: /home/hpc12/Radi/AdaRevD/weights/GoPro.pth
 #  baseblock_enc: [ naf ]
   baseblock: [fcnaf, fcnaf, fcnaf, fcnaf] # [naf, fnaf, dcnv3, fdcnv3] Fattn_FreqLC Ffftformer
   # [naf, dcnv3, fnaf, fdcnv3] [naf, naf, naf, naf] [fcnaf, fcnaf, fcnaf, fcnaf] #
   test_only: true # true
-  pretrain: false
+  pretrain: true
   dx: e3 # e3 e4 # fd4
   classifier_type: hard_simple # hard_simple # single
   num_classes: 6
